@@ -3,7 +3,7 @@
 DIR=$(dirname $0)
 . $DIR/utils.sh
 
-if [ $# -ne 1 ];
+if [ $# -ne 1 ] || [ $1 == "-h" ] || [ $1 == "--help" ];
 then 
 	echo_e "Usage: kill.sh <P4_PROGRAM_NAME>"
 	exit 1

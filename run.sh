@@ -4,7 +4,7 @@
 
 set -e 
 
-if [ $# -ne 2 ] && [ $# -ne 1 ];
+if [ $# -ne 2 ] && [ $# -ne 1 ] || [ $1 == "-h" ] || [ $1 == "--help" ];
 then 
 	echo_e "Usage: run.sh <P4_PROGRAM_NAME> [<BFRT_PRELOAD_FILE>]"
 	exit 1
