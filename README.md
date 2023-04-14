@@ -10,6 +10,10 @@
 
 网络抓包器，可将网络中所有包复制到指定端口，用于网络监测
 
+### traffic_multicast
+
+广播示例
+
 ## 使用
 
 以sample_switch为例
