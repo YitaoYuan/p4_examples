@@ -50,10 +50,13 @@ if [ -e $BFA_PATH ];
 then
   echo_r "make clean"
 fi
+start_time=`date +%s`
 echo_r "make && make install"
+end_time=`date +%s`
+dt=$[ end_time - start_time ]
 echo_i "Take up `cat $BFA_PATH | grep -c -E "stage.+ingress"` ingress stages"
 echo_i "Take up `cat $BFA_PATH | grep -c -E "stage.+egress"` egress stages"
-
+echo_i "Compilation time: ${dt} s" 
 
 
 
