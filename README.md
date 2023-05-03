@@ -8,7 +8,7 @@
 
 ### sample_switch_red_ecn
 
-RED-ECN，也可以称作DCQCN。
+RED-ECN，是DCQCN在交换机上的拥塞标记机制。
 相比于sample_switch，将RDMA二对一incast流量的丢包率从1e-3级别降低到1e-5级别。
 对TCP也生效。
 推荐默认使用sample_switch_red_ecn
