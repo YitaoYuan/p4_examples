@@ -12,3 +12,6 @@ bfrt.mirror.cfg.add_with_normal(mirror_session_id, True, "INGRESS", port[mirror_
 # enable mirror for specific protocol
 for protocol in mirror_l3_protocols:
     bfrt.traffic_mirror.pipe.Ingress.mirror_filter.add_with_do_mirror(protocol)
+
+for p in port[1:]:
+    bfrt.port.port.add(p, 'BF_SPEED_100G', 'BF_FEC_TYP_NONE', 4, True, 'PM_AN_FORCE_DISABLE')

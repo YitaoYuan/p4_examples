@@ -8,3 +8,6 @@ bfrt.sample_switch_red_ecn.pipe.Egress.red_ecn.wred.add(0, 0, 125, 2500, 0.01)
 # 0 ~ 10KB, 0 
 # 10 ~ 200KB, 0 ~ 0.01
 # 200KB ~, 1
+
+for p in port[1:]:
+    bfrt.port.port.add(p, 'BF_SPEED_100G', 'BF_FEC_TYP_NONE', 4, True, 'PM_AN_FORCE_DISABLE')

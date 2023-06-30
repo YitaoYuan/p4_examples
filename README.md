@@ -37,6 +37,8 @@ RED-ECN，是DCQCN在交换机上的拥塞标记机制。
 ./run.sh sample_switch ./sample_switch/bfrt.py
 ```
 
+如果程序不需要任何控制平面，可以使用默认的控制平面代码./default_bfrt.py配置端口
+
 ### 停止
 
 ```
