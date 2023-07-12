@@ -19,8 +19,22 @@ header ethernet_t {
     bit<16> ether_type;
 }
 
+header ip_t {
+    bit<8> ver_hl; // 4 + 4
+    bit<8> dscp_ecn; // tos, 6 + 2
+    bit<16> length;
+    bit<16> id;
+    bit<16> flag_offset; // flag and offset of fragment, 3 + 13
+    bit<8> ttl;
+    bit<8> protocol;
+    bit<16> checksum;
+    bit<32> sip;
+    bit<32> dip;
+}
+
 struct headers {
     ethernet_t ethernet;
+    ip_t ip;
 }
 
 struct port_metadata_t {
@@ -92,7 +106,6 @@ control Ingress(
     }
 
     apply {
-        ig_intr_tm_md.bypass_egress = 1;
         l2_forward_table.apply();
     }
 }
@@ -108,7 +121,7 @@ control IngressDeparser(
         in ingress_intrinsic_metadata_for_deparser_t ig_intr_dprsr_md) {
 
     apply{
-        packet.emit(hdr.ethernet);
+        packet.emit(hdr);
     }
 }
 
@@ -117,8 +130,38 @@ parser EgressParser(packet_in packet,
                out metadata meta,
                out egress_intrinsic_metadata_t eg_intr_md) {
     state start {
-        //packet.extract(eg_intr_md);
+        packet.extract(eg_intr_md);
+        transition parse_ethernet;
+    }
+
+    state parse_ethernet {
+        packet.extract(hdr.ethernet);
+        transition select(hdr.ethernet.ether_type) {
+            0x0800: parse_ip;
+            default: accept;
+        }
+    }
+
+    state parse_ip{
+        packet.extract(hdr.ip);
         transition accept;
+    }
+}
+
+control dcqcn(
+    inout headers hdr,
+    in egress_intrinsic_metadata_t eg_intr_md) {
+
+    Wred<bit<19>, bit<32>>(32w1, 8w1, 8w0) wred;
+    apply {
+        if(hdr.ip.isValid()) {
+            if(hdr.ip.dscp_ecn[1:0] == 0) { // Using "!=" and "&&" sometimes causes BUG
+            }
+            else {
+                bit<8> drop_flag = wred.execute(eg_intr_md.deq_qdepth, 0);
+                if(drop_flag == 1) hdr.ip.dscp_ecn[1:0] = 3;
+            }
+        }
     }
 }
 
@@ -129,14 +172,37 @@ control Egress(
         in egress_intrinsic_metadata_from_parser_t eg_intr_prsr_md,
         inout egress_intrinsic_metadata_for_deparser_t ig_intr_dprs_md,
         inout egress_intrinsic_metadata_for_output_port_t eg_intr_oport_md) {
-    apply { }
+    apply { 
+        dcqcn.apply(hdr, eg_intr_md);
+    }
 }
 
-control EgressDeparser(packet_out b,
+control EgressChecksum(inout headers hdr) {
+    Checksum() csum;
+    apply{
+        hdr.ip.checksum = csum.update({
+            hdr.ip.ver_hl,
+            hdr.ip.dscp_ecn,
+            hdr.ip.length,
+            hdr.ip.id,
+            hdr.ip.flag_offset,
+            hdr.ip.ttl,
+            hdr.ip.protocol,
+            hdr.ip.sip,
+            hdr.ip.dip
+        });
+    }
+}
+
+control EgressDeparser(packet_out packet,
                   inout headers hdr,
                   in metadata meta,
                   in egress_intrinsic_metadata_for_deparser_t ig_intr_dprs_md) {
-    apply { }
+    
+    apply { 
+        EgressChecksum.apply(hdr);
+        packet.emit(hdr);
+    }
 }
 
 Pipeline(IngressParser(), Ingress(), IngressDeparser(), EgressParser(), Egress(), EgressDeparser()) pipe;
