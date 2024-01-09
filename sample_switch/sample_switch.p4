@@ -90,8 +90,16 @@ control Ingress(
     }
 
     action l2_forward(bit<9> port) {
+        ig_intr_dprs_md.drop_ctl = 0;
         ig_intr_tm_md.ucast_egress_port = port;
+        // In doc of TNA, 192 is CPU PCIE port and 64~67 is CPU Ethernet ports for 2-pipe TF1
     }
+
+    // action l2_forward_copy_to_cpu(bit<9> port) { // useless
+    //     ig_intr_dprs_md.drop_ctl = 0;
+    //     ig_intr_tm_md.ucast_egress_port = port;
+    //     ig_intr_tm_md.copy_to_cpu = 1;
+    // }
 
     table l2_forward_table{
         key = {
@@ -99,6 +107,7 @@ control Ingress(
         }
         actions = {
             l2_forward;
+            // l2_forward_copy_to_cpu;
             drop;
         }
         size = 32;
