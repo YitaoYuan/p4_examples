@@ -23,4 +23,4 @@ bfrt.pre.mgid.add(mgid, node_id, [False]*len(node_id), [0]*len(node_id))
 # you can multicast to a port multiple times in a multicast group
 
 for p in port:
-    bfrt.port.port.add(p, 'BF_SPEED_100G', 'BF_FEC_TYP_NONE', 4, True, 'PM_AN_FORCE_DISABLE')
+    bfrt.port.port.add(p, 'BF_SPEED_100G', 'BF_FEC_TYP_RS', 4, True, 'PM_AN_FORCE_DISABLE')
