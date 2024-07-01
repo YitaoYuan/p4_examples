@@ -36,14 +36,16 @@ echo_i "Boot switch in the background."
 echo_r "$SDE/run_switchd.sh -p $PROGRAM > /dev/null 2>&1 &"
 
 set +e
-wait $!
-retval=$?
+for i in {1..10}; do 
+    sleep 1
+    kill -0 $! # check existence
+    retval=$?
+    if [ "$retval" -ne "0" ]; then
+        echo_e "Error on run_switchd.sh"
+        exit 1
+    fi
+done
 set -e
-
-if [ "$retval" -ne "0" ]; then
-    echo_e "Error on run_switchd.sh"
-    exit 1
-fi
 
 echo_i "Boot controller... "
 
