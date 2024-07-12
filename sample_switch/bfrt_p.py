@@ -17,9 +17,19 @@ def Namespace():
     # 10 ~ 200KB, 0 ~ 0.01
     # 200KB ~, 1
 
-    for p in port:
+    node_list = []
+
+    for index, p in enumerate(port):
         if p == pcie_port: # this port do not need to be added, and add it will cause error
             continue
         bfrt.port.port.add(p, 'BF_SPEED_100G', 'BF_FEC_TYP_RS', 4, True, 'PM_AN_FORCE_DISABLE')
+        node_id = index + 1
+        node_list.append(node_id)
+        bfrt.pre.node.add(node_id, 0, None, [p]) # node_id, rid, lag_id, dev_port
+
+    mgid = 1 
+    bfrt.pre.mgid.add(mgid, node_list, [False] * len(node_list), [0] * len(node_list)) # mgid, node_id, L1_XID_VALID, L1_XID
+
+    bfrt.sample_switch.pipe.Ingress.l2_forward_table.add_with_l2_multicast(0xffffffffffff, mgid)
 
 Namespace()

@@ -19,6 +19,11 @@ then
 BFRT_PRELOAD_FILE=`cd $(dirname $2); pwd`/$(basename $2)
 fi
 
+if ! [ -f "$2" ]; then
+echo_e "Controller file does not exist."
+exit 1
+fi
+
 echo_i "Find and kill previous process."
 
 $DIR/kill.sh $PROGRAM

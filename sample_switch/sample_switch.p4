@@ -52,11 +52,11 @@ struct metadata {
 parser IngressParser(packet_in packet,
                out headers hdr,
                out metadata meta,
-               out ingress_intrinsic_metadata_t ig_intr_md) {
+               out ingress_intrinsic_metadata_t ig_md) {
 
     state start {
-        packet.extract(ig_intr_md);
-        transition select(ig_intr_md.resubmit_flag) {
+        packet.extract(ig_md);
+        transition select(ig_md.resubmit_flag) {
             0 : parse_port_metadata;
         }
     }
@@ -80,25 +80,30 @@ parser IngressParser(packet_in packet,
 control Ingress(
         inout headers hdr,
         inout metadata meta,
-        in ingress_intrinsic_metadata_t ig_intr_md,
-        in ingress_intrinsic_metadata_from_parser_t ig_intr_prsr_md,
-        inout ingress_intrinsic_metadata_for_deparser_t ig_intr_dprs_md,
-        inout ingress_intrinsic_metadata_for_tm_t ig_intr_tm_md) {
+        in ingress_intrinsic_metadata_t ig_md,
+        in ingress_intrinsic_metadata_from_parser_t ig_prsr_md,
+        inout ingress_intrinsic_metadata_for_deparser_t ig_dprs_md,
+        inout ingress_intrinsic_metadata_for_tm_t ig_tm_md) {
     
     action drop() {
-        ig_intr_dprs_md.drop_ctl = 0x1;
+        ig_dprs_md.drop_ctl = 0x1;
     }
 
-    action l2_forward(bit<9> port) {
-        ig_intr_dprs_md.drop_ctl = 0;
-        ig_intr_tm_md.ucast_egress_port = port;
+    action l2_forward(PortId_t port) {// 9 bit
+        ig_dprs_md.drop_ctl = 0;
+        ig_tm_md.ucast_egress_port = port;
         // In doc of TNA, 192 is CPU PCIE port and 64~67 is CPU Ethernet ports for 2-pipe TF1
     }
 
+    action l2_multicast(MulticastGroupId_t group) {// 16 bit
+        ig_dprs_md.drop_ctl = 0;
+        ig_tm_md.mcast_grp_a = group;
+    }
+
     // action l2_forward_copy_to_cpu(bit<9> port) { // useless
-    //     ig_intr_dprs_md.drop_ctl = 0;
-    //     ig_intr_tm_md.ucast_egress_port = port;
-    //     ig_intr_tm_md.copy_to_cpu = 1;
+    //     ig_dprs_md.drop_ctl = 0;
+    //     ig_tm_md.ucast_egress_port = port;
+    //     ig_tm_md.copy_to_cpu = 1;
     // }
 
     table l2_forward_table{
@@ -107,6 +112,7 @@ control Ingress(
         }
         actions = {
             l2_forward;
+            l2_multicast;
             // l2_forward_copy_to_cpu;
             drop;
         }
@@ -137,9 +143,9 @@ control IngressDeparser(
 parser EgressParser(packet_in packet,
                out headers hdr,
                out metadata meta,
-               out egress_intrinsic_metadata_t eg_intr_md) {
+               out egress_intrinsic_metadata_t eg_md) {
     state start {
-        packet.extract(eg_intr_md);
+        packet.extract(eg_md);
         transition parse_ethernet;
     }
 
@@ -159,7 +165,7 @@ parser EgressParser(packet_in packet,
 
 control dcqcn(
     inout headers hdr,
-    in egress_intrinsic_metadata_t eg_intr_md) {
+    in egress_intrinsic_metadata_t eg_md) {
 
     Wred<bit<19>, bit<32>>(32w1, 8w1, 8w0) wred;
     apply {
@@ -167,7 +173,7 @@ control dcqcn(
             if(hdr.ip.dscp_ecn[1:0] == 0) { // Using "!=" and "&&" sometimes causes BUG
             }
             else {
-                bit<8> drop_flag = wred.execute(eg_intr_md.deq_qdepth, 0);
+                bit<8> drop_flag = wred.execute(eg_md.deq_qdepth, 0);
                 if(drop_flag == 1) hdr.ip.dscp_ecn[1:0] = 3;
             }
         }
@@ -177,12 +183,12 @@ control dcqcn(
 control Egress(
         inout headers hdr,
         inout metadata meta,
-        in egress_intrinsic_metadata_t eg_intr_md,
-        in egress_intrinsic_metadata_from_parser_t eg_intr_prsr_md,
-        inout egress_intrinsic_metadata_for_deparser_t ig_intr_dprs_md,
-        inout egress_intrinsic_metadata_for_output_port_t eg_intr_oport_md) {
+        in egress_intrinsic_metadata_t eg_md,
+        in egress_intrinsic_metadata_from_parser_t eg_prsr_md,
+        inout egress_intrinsic_metadata_for_deparser_t ig_dprs_md,
+        inout egress_intrinsic_metadata_for_output_port_t eg_oport_md) {
     apply { 
-        dcqcn.apply(hdr, eg_intr_md);
+        dcqcn.apply(hdr, eg_md);
     }
 }
 
@@ -206,7 +212,7 @@ control EgressChecksum(inout headers hdr) {
 control EgressDeparser(packet_out packet,
                   inout headers hdr,
                   in metadata meta,
-                  in egress_intrinsic_metadata_for_deparser_t ig_intr_dprs_md) {
+                  in egress_intrinsic_metadata_for_deparser_t ig_dprs_md) {
     
     apply { 
         EgressChecksum.apply(hdr);
