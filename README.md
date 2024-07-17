@@ -4,7 +4,7 @@
 
 ### sample_switch
 
-二层静态转发交换机
+二层静态转发交换机，支持广播（ARP）
 
 ### sample_switch_red_ecn
 
