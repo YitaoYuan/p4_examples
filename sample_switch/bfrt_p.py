@@ -20,7 +20,7 @@ def Namespace():
     node_list = []
 
     for index, p in enumerate(port):
-        if p == pcie_port: # this port do not need to be added, and add it will cause error
+        if p == pcie_port: # this port do not need to be added, and add it will cause error in mgid.add()
             continue
         bfrt.port.port.add(p, 'BF_SPEED_100G', 'BF_FEC_TYP_RS', 4, True, 'PM_AN_FORCE_DISABLE')
         node_id = index + 1
