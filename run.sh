@@ -38,7 +38,7 @@ fi
 
 echo_i "Boot switch in the background."
 
-echo_r "$SDE/run_switchd.sh -p $PROGRAM > /dev/null 2>&1 &"
+echo_r "$SDE/run_switchd.sh -p $PROGRAM > /tmp/switchd.log 2>&1 &"
 
 set +e
 for i in {1..10}; do 
@@ -47,6 +47,7 @@ for i in {1..10}; do
     retval=$?
     if [ "$retval" -ne "0" ]; then
         echo_e "Error on run_switchd.sh"
+        cat /tmp/switchd.log
         exit 1
     fi
 done
@@ -54,7 +55,13 @@ set -e
 
 if [ $# -eq 2 ]; then
     echo_i "Boot controller... "
-    echo_r "$SDE/run_bfshell.sh -b $BFRT_PRELOAD_FILE > /dev/null 2>&1"
+    echo_r "$SDE/run_bfshell.sh -b $BFRT_PRELOAD_FILE > /tmp/bfrt.log 2>&1"
+    retval=$?
+    if [ "$retval" -ne "0" ]; then
+        echo_e "Error on run_bfshell.sh"
+        cat /tmp/bfrt.log
+        exit 1
+    fi
 fi 
 
 echo_i "Done."
