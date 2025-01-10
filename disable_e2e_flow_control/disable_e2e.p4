@@ -6,35 +6,21 @@
 #include <tna.p4>
 #endif
 
+#include "std_header.p4"
+
 typedef bit<9> egress_spec_t;
-typedef bit<48> mac_addr_t;
+// typedef bit<48> mac_addr_t;
 
 /*************************************************************************
 *********************** H E A D E R S  ***********************************
 *************************************************************************/
 
-header ethernet_t {
-    mac_addr_t dst_addr;
-    mac_addr_t src_addr;
-    bit<16> ether_type;
-}
-
-header ip_t {
-    bit<8> ver_hl; // 4 + 4
-    bit<8> dscp_ecn; // tos, 6 + 2
-    bit<16> length;
-    bit<16> id;
-    bit<16> flag_offset; // flag and offset of fragment, 3 + 13
-    bit<8> ttl;
-    bit<8> protocol;
-    bit<16> checksum;
-    bit<32> sip;
-    bit<32> dip;
-}
-
 struct headers {
-    ethernet_t ethernet;
+    eth_t eth;
     ip_t ip;
+    udp_t udp;
+    bth_t bth;
+    aeth_t aeth;
 }
 
 struct port_metadata_t {
@@ -63,11 +49,43 @@ parser IngressParser(packet_in packet,
 
     state parse_port_metadata {
         meta.port_metadata = port_metadata_unpack<port_metadata_t>(packet);
-        transition parse_ethernet;
+        transition parse_eth;
     }
 
-    state parse_ethernet {
-        packet.extract(hdr.ethernet);
+    state parse_eth {
+        packet.extract(hdr.eth);
+        transition select(hdr.eth.protocol) {
+            IP_PROTOCOL: parse_ip;
+            default: accept;
+        }
+    }
+
+    state parse_ip{
+        packet.extract(hdr.ip);
+        transition select(hdr.ip.protocol) {
+            UDP_PROTOCOL: parse_udp;
+            default: accept;
+        }
+    }
+
+    state parse_udp{
+        packet.extract(hdr.udp);
+        transition select(hdr.udp.dport) {
+            RDMA_DPORT: parse_bth;
+            default: accept;
+        }
+    }
+
+    state parse_bth{
+        packet.extract(hdr.bth);
+        transition select(hdr.bth.opcode) {
+            RDMA_OP_ACK: parse_aeth;
+            default: accept;
+        }
+    }
+
+    state parse_aeth{
+        packet.extract(hdr.aeth);
         transition accept;
     }
 }
@@ -92,7 +110,7 @@ control Ingress(
     action l2_forward(PortId_t port) {// 9 bit
         ig_dprs_md.drop_ctl = 0;
         ig_tm_md.ucast_egress_port = port;
-        // In doc of TNA, 192 is CPU PCIE port and 64~67 is CPU Ethernet ports for 2-pipe TF1
+        // In doc of TNA, 192 is CPU PCIE port and 64~67 is CPU eth ports for 2-pipe TF1
     }
 
     action l2_multicast(MulticastGroupId_t group) {// 16 bit
@@ -108,7 +126,7 @@ control Ingress(
 
     table l2_forward_table{
         key = {
-            hdr.ethernet.dst_addr: exact;
+            hdr.eth.dmac: exact;
         }
         actions = {
             l2_forward;
@@ -122,6 +140,10 @@ control Ingress(
 
     apply {
         l2_forward_table.apply();
+
+        if(hdr.aeth.isValid())
+            if(hdr.aeth.syndrome_msn[31:29] == 0) // ACK packet
+                hdr.aeth.syndrome_msn[31:24] = 8w0b00011111; // disable end-to-end flow control
     }
 }
 
@@ -146,12 +168,12 @@ parser EgressParser(packet_in packet,
                out egress_intrinsic_metadata_t eg_md) {
     state start {
         packet.extract(eg_md);
-        transition parse_ethernet;
+        transition parse_eth;
     }
 
-    state parse_ethernet {
-        packet.extract(hdr.ethernet);
-        transition select(hdr.ethernet.ether_type) {
+    state parse_eth {
+        packet.extract(hdr.eth);
+        transition select(hdr.eth.protocol) {
             0x0800: parse_ip;
             default: accept;
         }

@@ -6,6 +6,8 @@
 #include <tna.p4>
 #endif
 
+#include "random_drop_engine.p4"
+
 typedef bit<9> egress_spec_t;
 typedef bit<48> mac_addr_t;
 
@@ -189,6 +191,7 @@ control Egress(
         inout egress_intrinsic_metadata_for_output_port_t eg_oport_md) {
     apply { 
         dcqcn.apply(hdr, eg_md);
+        random_drop.apply(eg_dprs_md);
     }
 }
 
