@@ -30,14 +30,9 @@ $DIR/kill.sh $PROGRAM
 
 sleep 0.1
 
-if [ -n "`pgrep bf_switchd`" ]; then 
-    echo_e "Switch is being used by another program."
-    exit 1
-fi
-
 check_port=`netstat -tuln | grep :7777`
 
-if [ -n "$check_port" ]; then 
+if [ -n "`pgrep bf_switchd`" ] || [ -n "$check_port" ]; then 
     echo_e "Switch is being used by another program."
     exit 1
 fi
